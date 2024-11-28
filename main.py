@@ -22,9 +22,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-
-import pandas as pd
-
 @st.cache_data
 def load_transform_data():
     # Leitura dos arquivos CSV
