@@ -1,11 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import locale
 import altair as alt
 import plotly.graph_objects as go
 
-locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 st.set_page_config(layout="wide")
 
 
@@ -52,11 +50,15 @@ def load_transform_data():
 
     return df_vendas
 
+def formatar_moeda(valor):
+    return "{:,.2f}".format(valor).replace(",", "X").replace(".", ",").replace("X", ".")
+
+
 def data_transform_show(df_filtered):
-    # Formatação dos valores
-    total_vendas_periodo = locale.format_string("%.2f", round(df_filtered["Total da Venda"].sum(), 2), grouping=True) 
-    total_lucro_periodo = locale.format_string("%.2f", round(df_filtered["Lucro da Venda"].sum(), 2), grouping=True) 
-    ticket_medio = locale.format_string("%.2f", round(df_filtered["Total da Venda"].mean(), 2), grouping=True) 
+    # Calculando os totais
+    total_vendas_periodo = formatar_moeda(round(df_filtered["Total da Venda"].sum(), 2))
+    total_lucro_periodo = formatar_moeda(round(df_filtered["Lucro da Venda"].sum(), 2))
+    ticket_medio = formatar_moeda(round(df_filtered["Total da Venda"].mean(), 2))
 
     # Template para os Cards
     card_template = """
