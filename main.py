@@ -70,7 +70,7 @@ def data_transform_show(df_filtered):
         padding: 20px; 
         text-align: center; 
         width: 100%; 
-        max-width: 450px; 
+        max-width: 470px; 
         margin: 20px; 
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
         <h1 style="color: {color}; font-size: 2.8em; margin: 0; padding-bottom: 10px;">R$ {value}</h1>
