@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 
 st.set_page_config(layout="wide")
 
+### Streamlit Community: https://streamlib-dashboards-example.streamlit.app/
 
 # Título do Dashboard
 st.markdown(
@@ -20,15 +21,16 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+#Armazena os dados importados em cache
 @st.cache_data
 def load_transform_data():
-    # Leitura dos arquivos CSV
+    # Adicionando os CSVs em Dataframes no Pandas
     df_vendas = pd.read_csv("Vendas.csv", sep=';')
     df_produtos = pd.read_csv("CadastroProdutos.csv", sep=';')
     df_lojas = pd.read_csv("Lojas.csv", sep=';')
     df_promocoes = pd.read_csv("Promocoes.csv", sep=';')
 
-    # Realizando os merges de forma clara
+    # Realizando os merges
     df_vendas = df_vendas.merge(df_produtos, on='ID Produto', how='left') \
                         .merge(df_lojas, on='ID Loja', how='left') \
                         .merge(df_promocoes, on='ID Promocao', how='left')
@@ -45,16 +47,15 @@ def load_transform_data():
     df_vendas["Lucro da Venda"] = (df_vendas["Custo Unitario"] * df_vendas["Quantidade Vendida"].astype(int)) - \
                                   (df_vendas["Custo Unitario"] * df_vendas["Quantidade Devolvida"].astype(int))
 
-    # Salvando o DataFrame resultante
-    df_vendas.to_csv("dfvendas.csv", sep=';', index=False)
-
+    #Retornando o DataFrame final
     return df_vendas
 
+#Função para formatar os valores como moeda
 def formatar_moeda(valor):
     return "{:,.2f}".format(valor).replace(",", "X").replace(".", ",").replace("X", ".")
 
-
-def data_transform_show(df_filtered):
+#Função para exibição dos cards de valores totais no topo do dashboard
+def card_show(df_filtered):
     # Calculando os totais
     total_vendas_periodo = formatar_moeda(round(df_filtered["Total da Venda"].sum(), 2))
     total_lucro_periodo = formatar_moeda(round(df_filtered["Lucro da Venda"].sum(), 2))
@@ -78,7 +79,6 @@ def data_transform_show(df_filtered):
     </div>
     """
 
-    # Layout dos Cards com maior responsividade
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(card_template.format(color="#FFFFFF", value=total_vendas_periodo, label="Total de Vendas"), unsafe_allow_html=True)
@@ -87,22 +87,18 @@ def data_transform_show(df_filtered):
     with col3:
         st.markdown(card_template.format(color="#FFFFFF", value=ticket_medio, label="Ticket Médio"), unsafe_allow_html=True)
 
-
+#Função do gráfico de Faturamento utilizando Plotly
 def charts_revenue(df_filtered):
     # Título do gráfico
     st.subheader("1. Faturamento Mensal")
 
-    # Convertendo "Data da Venda" para datetime e criando coluna 'mes'
     df_filtered["Data da Venda"] = pd.to_datetime(df_filtered["Data da Venda"])
     df_filtered["mes"] = df_filtered["Data da Venda"].dt.to_period("M").astype(str)
-
-    # Agrupando por mês e somando o total de vendas e lucro
     resumo_mensal = df_filtered.groupby("mes")[["Total da Venda", "Lucro da Venda"]].sum().reset_index()
 
-    # Criando o gráfico com colunas para o total de vendas e linha para o lucro
+    # Criando o gráfico para o total de vendas e linha para o lucro
     fig = go.Figure()
 
-    # Adicionando o gráfico de barras (Total de Vendas)
     fig.add_trace(go.Bar(
         x=resumo_mensal["mes"],
         y=resumo_mensal["Total da Venda"],
@@ -113,7 +109,6 @@ def charts_revenue(df_filtered):
         textposition="outside"
     ))
 
-    # Adicionando o gráfico de linha (Lucro da Venda)
     fig.add_trace(go.Scatter(
         x=resumo_mensal["mes"],
         y=resumo_mensal["Lucro da Venda"],
@@ -123,7 +118,6 @@ def charts_revenue(df_filtered):
         marker=dict(size=8, color='green')
     ))
 
-    # Ajustando o layout do gráfico para visualização mais clara
     fig.update_layout(
         xaxis_title="Mês",
         yaxis_title="Valor (R$)",
@@ -135,18 +129,14 @@ def charts_revenue(df_filtered):
         height=400
     )
 
-    # Exibindo o gráfico de forma responsiva no Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
 def charts_type_sales(df_filtered):
-    # Dividindo a tela em duas colunas para os gráficos
     col3, col4 = st.columns(2)
     
-    # Gráfico de Faturamento por Tipo de Produto (donut)
+    # Gráfico de Faturamento por Tipo de Produto
     with col3:
         st.subheader("3. Faturamento Por Categoria de Produto")
-
-        # Agrupando por 'Tipo' e somando o 'Total da Venda'
         total_venda_por_tipo = df_filtered.groupby('Tipo')['Total da Venda'].sum().reset_index()
 
         # Criando o gráfico de rosca (donut) com Altair
@@ -160,59 +150,38 @@ def charts_type_sales(df_filtered):
     # Gráfico de Faturamento por Produto
     with col4:
         st.subheader("2. Faturamento Por Produto")
-        
-        # Agrupando por 'Categoria' e somando o 'Total da Venda'
         produtos_mais_vendidos = df_filtered.groupby('Categoria').agg({'Total da Venda': 'sum'}).reset_index()
         produtos_mais_vendidos = produtos_mais_vendidos.sort_values(by="Total da Venda", ascending=False).head(10)
-
-        # Criando o gráfico de barras
         st.bar_chart(produtos_mais_vendidos.set_index("Categoria")["Total da Venda"], 
                     use_container_width=True)
 
+#Função para o gráfico de análise de vendas das Promoções
 def promotion_infos(df_filtered):
-    # Garantir que 'Total da Venda' é numérico
-    try:
-        df_filtered["Total da Venda"] = (
-            df_filtered["Total da Venda"]
-            .astype(str)  # Converter para string, caso tenha valores não numéricos
-            .str.replace(',', '')  # Remover vírgulas
-            .astype(float)  # Converter para float
-        )
-    except Exception as e:
-        st.error(f"Erro na conversão dos valores de vendas: {e}")
-        return
-
-    # Agrupar por "Nome Promocao" e somar o "Total da Venda"
     df_total_promocoes = df_filtered.groupby("Nome Promocao")["Total da Venda"].sum().reset_index()
-
-    # Renomear as colunas para clareza
     df_total_promocoes.columns = ["Promoção", "Total de Vendas"]
 
-    # Gerar o gráfico de barras
     fig = px.bar(
         df_total_promocoes, 
         x="Promoção", 
         y="Total de Vendas",
-        text="Total de Vendas",  # Mostrar os valores diretamente nas barras
-        labels={"Promoção": "Promoção", "Total de Vendas": "Total de Vendas (R$)"},  # Renomear eixos
-        color="Promoção",  # Colorir barras por promoção (opcional)
+        text="Total de Vendas",  
+        labels={"Promoção": "Promoção", "Total de Vendas": "Total de Vendas (R$)"},  
+        color="Promoção",  
     )
 
-    # Customizar o layout do gráfico
     fig.update_traces(
-        texttemplate='%{text:.2f}',  # Formato do texto: 2 casas decimais
-        textposition='outside'      # Posição do texto: fora das barras
+        texttemplate='%{text:.2f}',  
+        textposition='outside'      
     )
     fig.update_layout(
-        xaxis=dict(title="Promoção"),  # Nome do eixo x
-        yaxis=dict(title="Total de Vendas (R$)"),  # Nome do eixo y
-        showlegend=False  # Remover a legenda, pois as cores são autoexplicativas
+        xaxis=dict(title="Promoção"),  
+        yaxis=dict(title="Total de Vendas (R$)"),  
+        showlegend=False
     )
 
-    # Configuração do aplicativo Streamlit
-    st.markdown("### 4. Faturamento por Promoção")
+    st.subheader("4. Faturamento por Promoção")
 
-    # Exportar o DataFrame para CSV e gerar link para download
+    # Link para download em CSV
     csv_file = df_total_promocoes.to_csv(index=False, sep=';')
     st.download_button(
         label="Baixar Dados de Promoções",
@@ -221,17 +190,16 @@ def promotion_infos(df_filtered):
         mime="text/csv"
     )
 
-
-    # Exibir o gráfico no Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
-
+#Exibição dos dados brutos
 def full_data(df_filtered):
     if st.checkbox('Mostrar Dados Brutos'):
         st.subheader('Dados Brutos')
         st.write(df_filtered)
 
 
+#Barra lateral de filtros
 def filter_sidebar(df_vendas):
     # Configuração e imagem do cabeçalho
     st.sidebar.markdown(
@@ -243,7 +211,7 @@ def filter_sidebar(df_vendas):
         unsafe_allow_html=True
     )
 
-    # Título e introdução aos filtros
+    # Título dos filtros
     st.sidebar.markdown(
         """
         <hr style="border: 1px solid #ccc;">
@@ -255,11 +223,10 @@ def filter_sidebar(df_vendas):
         unsafe_allow_html=True
     )
 
-    # Conversão de datas para DateTime e obtenção de intervalo
     df_vendas["Data da Venda"] = pd.to_datetime(df_vendas["Data da Venda"], format="%d/%m/%Y")
     data_min, data_max = df_vendas["Data da Venda"].min(), df_vendas["Data da Venda"].max()
 
-    # Widgets de filtro de data
+    # Filtro de data
     st.sidebar.subheader("Período de Vendas")
     data_inicial = st.sidebar.date_input("Data Inicial", value=data_min, min_value=data_min, max_value=data_max, key="data_inicial")
     data_final = st.sidebar.date_input("Data Final", value=data_max, min_value=data_min, max_value=data_max, key="data_final")
@@ -308,7 +275,7 @@ def filter_sidebar(df_vendas):
 if __name__ == "__main__":
     df_vendas = load_transform_data()
     df_filtered = filter_sidebar(df_vendas)
-    data_transform_show(df_filtered)
+    card_show(df_filtered)
     full_data(df_filtered)
     charts_revenue(df_filtered)
     charts_type_sales(df_filtered)
